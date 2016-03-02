@@ -73,4 +73,54 @@ Tools: bwa-mem, Picard(V1.141), GATK(V3.5), bedtools(V2.17), samtools(V1.2)
       -fixMisencodedQuals 
       -nt 16
 
-<br>12.Indel Realigner
+<br>12.Indel Realignment
+       java -jar GenomeAnalysisTK.jar -T IndelRealigner 
+       -R /home/cmdv/adra/ananas/SNP/Acomosus_v3.fa 
+       -I /home/cmdv/adra/ananas/SNP/bwa_aln.sorted.fxmt.mdup.arg.bam 
+       -targetIntervals /home/cmdv/adra/ananas/SNP/bwa.intervals 
+       -o bwa_realigned.bam
+
+<br>13.SNP calling
+       java -jar GenomeAnalysisTK.jar
+       -T HaplotypeCaller -R /home/cmdv/adra/ananas/SNP/Acomosus_v3.fa 
+       -I bwa_realigned.bam
+       -o gatk.raw.vcf
+       -nct 32
+       --genotyping_mode DISCOVERY
+       -stand_call_conf 30
+       -stand_emit_conf 10
+       
+<br>14.Select Variant
+       java -Xmx1g -jar GenomeAnalysisTK.jar
+       -T SelectVariants
+       -R /home/cmdv/adra/ananas/SNP/Acomosus_v3.fa 
+       -V gatk.raw.vcf
+       -selectType SNP
+       -o snp_gatk_raw.vcf
+       
+       java -Xmx1g -jar GenomeAnalysisTK.jar
+       -T SelectVariants
+       -R /home/cmdv/adra/ananas/SNP/Acomosus_v3.fa 
+       -V indel_gatk_raw.vcf 
+       -selectType INDEL
+       -o gatk.snp.raw.vcf
+
+
+<br>15.Variant Filtration
+       java -jar ../../../bioinfo_sware/GATK/GenomeAnalysisTK.jar 
+       -T VariantFiltration -R Acomosus_v3.fa 
+       -V snp_gatk_raw.vcf -o snp_gatk_hardfilter.vcf
+       --filterExpression "QD < 2.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0"
+       --filterName "ananasSNP"
+
+       java -jar ../../../bioinfo_sware/GATK/GenomeAnalysisTK.jar 
+       -T VariantFiltration -R Acomosus_v3.fa 
+       -V indel_gatk_raw.vcf 
+       --filterExpression "QD < 2.0 || FS > 200.0 || ReadPosRankSum < -20.0" --filterName "indel_gatk" 
+       -o indel_gatk_hardfilter.vcf
+
+
+<br>18. SNP annotation
+        java -jar snpEff.jar ann -v Acomosus_v3 ./data/Acomosus_v3/snp_gatk_hardfilter.vcf 
+        -s annot_summary.html >  ./data/Acomosus_v3/annot.vcf
+
